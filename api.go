@@ -8,7 +8,7 @@ import(
 	"time"
 	"github.com/max-durnea/Chirpy/internal/database"
 	"github.com/google/uuid"
-	
+	"strings"
 )
 
 
@@ -131,20 +131,50 @@ func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request)
 	respondWithJson(w,201,chirp)
 }
 func (cfg *apiConfig) getChirpsHandler(w http.ResponseWriter, r *http.Request){
-	dbChirps, err := cfg.db.GetChirps(r.Context())
-	if err != nil {
-		respondWithError(w, 500, fmt.Sprintf("%v", err))
+	path := r.URL.Path
+	if path == "/api/chirps"{
+		dbChirps, err := cfg.db.GetChirps(r.Context())
+		if err != nil {
+			respondWithError(w, 500, fmt.Sprintf("%v", err))
+			return
+		}
+		chirps := make([]Chirp, len(dbChirps))
+		for i, c := range dbChirps {
+			chirps[i] = Chirp{
+				ID:        c.ID,
+				CreatedAt: c.CreatedAt,
+				UpdatedAt: c.UpdatedAt,
+				Body:      c.Body,
+				UserID:    c.UserID,
+			}
+		}
+		respondWithJson(w, 200, chirps)
 		return
 	}
-	chirps := make([]Chirp, len(dbChirps))
-	for i, c := range dbChirps {
-		chirps[i] = Chirp{
-			ID:        c.ID,
-			CreatedAt: c.CreatedAt,
-			UpdatedAt: c.UpdatedAt,
-			Body:      c.Body,
-			UserID:    c.UserID,
+	prefix := "/api/chirps/"
+	
+	if strings.HasPrefix(path,prefix) {
+		chirpIDStr := strings.TrimPrefix(path,prefix)
+		id, err := uuid.Parse(chirpIDStr)
+
+		if err != nil {
+			respondWithError(w, 500, fmt.Sprintf("%v", err))
+			return
 		}
+
+		chirpDb, err := cfg.db.GetChirpById(r.Context(),id)
+		if err != nil {
+			respondWithError(w, 404, fmt.Sprintf("%v", err))
+			return
+		}
+		chirp := Chirp{
+				chirpDb.ID,
+				chirpDb.CreatedAt,
+				chirpDb.UpdatedAt,
+				chirpDb.Body,
+				chirpDb.UserID,
+		}
+		respondWithJson(w,200,chirp)
 	}
-	respondWithJson(w, 200, chirps)
+	
 }
