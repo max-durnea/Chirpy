@@ -28,7 +28,7 @@ func chirp_validation(w http.ResponseWriter, r *http.Request){
 		return
 	}
 	joined_string := clean_string(data.Body)
-	repsondWithJson(w,200,struct{CleanedBody string `json:"cleaned_body"`}{joined_string})
+	respondWithJson(w,200,struct{CleanedBody string `json:"cleaned_body"`}{joined_string})
 
 }
 

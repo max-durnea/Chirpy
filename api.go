@@ -63,7 +63,7 @@ func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request){
 	if err != nil {
 		respondWithError(w,400,fmt.Sprintf("%v",err))
 	}
-	repsondWithJson(w,201,user)
+	respondWithJson(w,201,user)
 }
 
 func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request){
@@ -128,6 +128,23 @@ func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request)
 		chirpDb.Body,
 		chirpDb.UserID,
 	}
-	repsondWithJson(w,201,chirp)
-
+	respondWithJson(w,201,chirp)
+}
+func (cfg *apiConfig) getChirpsHandler(w http.ResponseWriter, r *http.Request){
+	dbChirps, err := cfg.db.GetChirps(r.Context())
+	if err != nil {
+		respondWithError(w, 500, fmt.Sprintf("%v", err))
+		return
+	}
+	chirps := make([]Chirp, len(dbChirps))
+	for i, c := range dbChirps {
+		chirps[i] = Chirp{
+			ID:        c.ID,
+			CreatedAt: c.CreatedAt,
+			UpdatedAt: c.UpdatedAt,
+			Body:      c.Body,
+			UserID:    c.UserID,
+		}
+	}
+	respondWithJson(w, 200, chirps)
 }

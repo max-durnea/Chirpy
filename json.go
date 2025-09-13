@@ -8,10 +8,10 @@ func respondWithError(w http.ResponseWriter, code int, msg string){
 	type errorResponse struct {
 		Error string `json:"error"`
 	}
-	repsondWithJson(w, code, errorResponse{msg})
+	respondWithJson(w, code, errorResponse{msg})
 }
 
-func repsondWithJson(w http.ResponseWriter, code int, payload interface{}){
+func respondWithJson(w http.ResponseWriter, code int, payload interface{}){
 	w.Header().Set("Content-Type", "application/json")
 	data, err := json.Marshal(payload)
 	if err != nil {
