@@ -6,10 +6,12 @@ import(
 	"fmt"
 	"encoding/json"
 	"strings"
+	"github.com/max-durnea/Server-GO/internal/database"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	db *database.Queries
 }
 
 func handler(w http.ResponseWriter, r *http.Request){
