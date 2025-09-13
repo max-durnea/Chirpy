@@ -2,7 +2,8 @@ package main
 import(
 	"net/http"
 	"sync/atomic"
-	"fmt"   
+	"fmt"
+	"encoding/json"   
 )
 
 type apiConfig struct {
@@ -16,7 +17,28 @@ func handler(w http.ResponseWriter, r *http.Request){
 
 }
 
+func chirp_validation(w http.ResponseWriter, r *http.Request){
+	type chirp struct{
+		Body string `json:"body"`
+	}
+	decoder := json.NewDecoder(r.Body)
+	data := chirp{}
+	err := decoder.Decode(&data)
+	if err != nil {
+		w.WriteHeader(400)
+		fmt.Fprintf(w,"{\"error\":\"Something went wrong\"}")
+		return
+	}
+	if len(data.Body)>140{
+		w.WriteHeader(400)
+		fmt.Fprintf(w,"{\"error\":\"Chirp is too long\"}")
+		return
+	}
+	w.WriteHeader(200)
+	fmt.Fprintf(w,"{\"valid\":true}")
+	return
 
+}
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -27,8 +49,9 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 
 func (cfg *apiConfig) metricsHandler(w http.ResponseWriter, r *http.Request) {
     count := cfg.fileserverHits.Load()
-    w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-    fmt.Fprintf(w, "Hits: %d", count)
+    w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	page:=fmt.Sprintf("<html><body><h1>Welcome, Chirpy Admin</h1><p>Chirpy has been visited %d times!</p></body></html>",count)
+    fmt.Fprintf(w, page)
 }
 
 func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request) {
@@ -46,10 +69,10 @@ func main(){
 	fs := http.FileServer(http.Dir("."))
     mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app/", fs)))
 
-	mux.HandleFunc("GET /healthz",handler)
-	mux.HandleFunc("GET /metrics", apiCfg.metricsHandler)
-    mux.HandleFunc("POST /reset", apiCfg.resetHandler)
-
+	mux.HandleFunc("GET /api/healthz",handler)
+	mux.HandleFunc("GET /admin/metrics", apiCfg.metricsHandler)
+    mux.HandleFunc("POST /admin/reset", apiCfg.resetHandler)
+	mux.HandleFunc("POST /api/validate_chirp",chirp_validation)
 	server.ListenAndServe()
 	
 }
