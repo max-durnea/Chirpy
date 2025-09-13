@@ -1,6 +1,7 @@
 package main 
 
 import("strings")
+
 func clean_string(msg string) (cleaned_string string){
 	words := strings.Split(msg," ")
 	banned_words := map[string]struct{}{"kerfuffle":{},"sharbert":{},"fornax":{}}

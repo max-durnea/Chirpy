@@ -7,9 +7,19 @@ import(
 	"fmt"
 	"github.com/max-durnea/Server-GO/internal/database"
 	"github.com/joho/godotenv"
+	"github.com/google/uuid"
+	"time"
 )
 
 var apiCfg = apiConfig{}
+
+//Same user struct as in internal/database package, just to have the json keys
+type User struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Email     string    `json:"email"`
+}
 
 func main(){
 	//Load .env and open database connection
@@ -22,7 +32,7 @@ func main(){
 	}
 	dbQueries := database.New(db)
 	apiCfg.db = dbQueries
-
+	apiCfg.platform = os.Getenv("PLATFORM")
 	mux := http.NewServeMux()
 	server := &http.Server{}
 	server.Handler = mux
@@ -32,8 +42,9 @@ func main(){
 
 	mux.HandleFunc("GET /api/healthz",handler)
 	mux.HandleFunc("GET /admin/metrics", apiCfg.metricsHandler)
-    mux.HandleFunc("POST /admin/reset", apiCfg.resetHandler)
 	mux.HandleFunc("POST /api/validate_chirp",chirp_validation)
+	mux.HandleFunc("POST /api/users",apiCfg.createUserHandler)
+	mux.HandleFunc("POST /admin/reset",apiCfg.resetHandler)
 	server.ListenAndServe()
 	
 }
