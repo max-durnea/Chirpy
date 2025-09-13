@@ -77,5 +77,57 @@ func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request){
 		return
 	}
 	w.WriteHeader(200)
-	
+}
+
+func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request){
+	type payload struct {
+		Body string `json:"body"`
+		UserId string `json:"user_id"` 
+	}
+	decoder := json.NewDecoder(r.Body)
+	var data payload
+	err := decoder.Decode(&data)
+	if err != nil {
+		respondWithError(w,400,fmt.Sprintf("%v",err))
+		return
+	}
+	//validate chirp
+	if len(data.Body)>140{
+		respondWithError(w,400,"Chirp is too long")
+		return
+	}
+	joined_string := clean_string(data.Body)
+	userID, err := uuid.Parse(data.UserId)
+	if err != nil {
+		respondWithError(w, 400, "Invalid user ID")
+		return
+	}
+	//get the user by id
+	user,err := cfg.db.GetUserById(r.Context(),userID)
+	if err != nil {
+		respondWithError(w,400, fmt.Sprintf("%v", err))
+		return
+	}
+	chirpParams := database.CreateChirpParams{
+		uuid.New(),
+		time.Now(),
+		time.Now(),
+		joined_string,
+		user.ID,
+	}
+	chirpDb,err:=cfg.db.CreateChirp(r.Context(), chirpParams)
+	if err != nil {
+		respondWithError(w, 500, fmt.Sprintf("%v", err))
+		return
+	}
+
+	chirp := Chirp{
+		chirpDb.ID,
+		chirpDb.CreatedAt,
+		chirpDb.UpdatedAt,
+		chirpDb.Body,
+		chirpDb.UserID,
+	}
+	repsondWithJson(w,201,chirp)
+
 }

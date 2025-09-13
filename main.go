@@ -21,6 +21,14 @@ type User struct {
 	Email     string    `json:"email"`
 }
 
+type Chirp struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Body      string    `json:"body"`
+	UserID    uuid.UUID `json:"user_id"`
+}
+
 func main(){
 	//Load .env and open database connection
 	godotenv.Load()
@@ -45,6 +53,7 @@ func main(){
 	mux.HandleFunc("POST /api/validate_chirp",chirp_validation)
 	mux.HandleFunc("POST /api/users",apiCfg.createUserHandler)
 	mux.HandleFunc("POST /admin/reset",apiCfg.resetHandler)
-	server.ListenAndServe()
+	mux.HandleFunc("POST /api/chirps",apiCfg.createChirpHandler)
 	
+	server.ListenAndServe()
 }
