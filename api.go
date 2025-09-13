@@ -6,7 +6,7 @@ import(
 	"sync/atomic"
 	"encoding/json"
 	"time"
-	"github.com/max-durnea/Server-GO/internal/database"
+	"github.com/max-durnea/Chirpy/internal/database"
 	"github.com/google/uuid"
 	
 )

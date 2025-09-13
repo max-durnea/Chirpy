@@ -5,7 +5,7 @@ import(
 	"database/sql"
 	"os"
 	"fmt"
-	"github.com/max-durnea/Server-GO/internal/database"
+	"github.com/max-durnea/Chirpy/internal/database"
 	"github.com/joho/godotenv"
 	"github.com/google/uuid"
 	"time"

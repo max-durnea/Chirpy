@@ -1,4 +1,4 @@
-module github.com/max-durnea/Server-GO
+module github.com/max-durnea/Chirpy
 
 go 1.24.0
 
