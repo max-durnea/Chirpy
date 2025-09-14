@@ -6,9 +6,10 @@ import(
 	"sync/atomic"
 	"encoding/json"
 	"time"
+	"strings"
 	"github.com/max-durnea/Chirpy/internal/database"
 	"github.com/google/uuid"
-	"strings"
+	"github.com/max-durnea/Chirpy/internal/auth"
 )
 
 
@@ -30,20 +31,25 @@ func (cfg *apiConfig) metricsHandler(w http.ResponseWriter, r *http.Request) {
     count := cfg.fileserverHits.Load()
     w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	page:=fmt.Sprintf("<html><body><h1>Welcome, Chirpy Admin</h1><p>Chirpy has been visited %d times!</p></body></html>",count)
-    fmt.Fprintf(w, page)
+    fmt.Fprintf(w,"%v",page)
 }
 
 
 func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request){
 	type params struct{
+		Password string `json:"password"`
 		Email string `json:"email"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	data := params{}
 	err := decoder.Decode(&data)
 	if err != nil {
-
 		respondWithError(w,400,fmt.Sprintf("%v",err))
+		return
+	}
+	hashed_password,err := auth.HashPassword(data.Password)
+	if err != nil {
+		respondWithError(w,400,"Could not hash password")
 		return
 	}
 	param := database.CreateUserParams{
@@ -51,6 +57,7 @@ func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request){
 		time.Now(),
 		time.Now(),
 		data.Email,
+		string(hashed_password),
 	}
 	dbUser,err := cfg.db.CreateUser(r.Context(),param)
 	user := User{
@@ -62,6 +69,7 @@ func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request){
 
 	if err != nil {
 		respondWithError(w,400,fmt.Sprintf("%v",err))
+		return
 	}
 	respondWithJson(w,201,user)
 }
@@ -177,4 +185,36 @@ func (cfg *apiConfig) getChirpsHandler(w http.ResponseWriter, r *http.Request){
 		respondWithJson(w,200,chirp)
 	}
 	
+}
+
+func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request){
+	type params struct{
+		Password string `json:"password"`
+		Email string `json:"email"`
+	}
+	decoder := json.NewDecoder(r.Body)
+	var data params
+	err := decoder.Decode(&data)
+	if err != nil {
+		respondWithError(w,400,fmt.Sprintf("%v",err))
+		return
+	}
+	userDb, err := cfg.db.GetUserByEmail(r.Context(),data.Email)
+	if err != nil {
+		respondWithError(w,401,"Wrong Password/Email")
+		return
+	}
+	err = auth.CheckPasswordHash(data.Password,userDb.HashedPassword)
+	if err != nil {
+		respondWithError(w,401,"Wrong Password/Email")
+		return
+	}
+	user := User{
+		userDb.ID,
+		userDb.CreatedAt,
+		userDb.UpdatedAt,
+		userDb.Email,
+	}
+	respondWithJson(w,200,user)
+
 }
