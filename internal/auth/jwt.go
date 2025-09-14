@@ -4,9 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"time"
-
+	"net/http"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"strings"
 )
 
 func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (string, error) {
@@ -47,4 +48,21 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 	}
 
 	return userID, nil
+}
+
+func GetBearerToken(headers http.Header) (string, error){
+	authHeader := headers.Get("Authorization")
+	if authHeader == "" {
+		return "", errors.New("missing Authorization header")
+	}
+	const prefix = "Bearer "
+	if !strings.HasPrefix(authHeader, prefix){
+		return "", errors.New("invalid Authorization header format")
+	}
+
+	token := strings.TrimSpace(strings.TrimPrefix(authHeader,prefix))
+	if token == ""{
+		return "", errors.New("empty bearer token")
+	}
+	return token, nil
 }

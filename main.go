@@ -41,6 +41,7 @@ func main(){
 	dbQueries := database.New(db)
 	apiCfg.db = dbQueries
 	apiCfg.platform = os.Getenv("PLATFORM")
+	apiCfg.secret = os.Getenv("SECRET")
 	mux := http.NewServeMux()
 	server := &http.Server{}
 	server.Handler = mux
