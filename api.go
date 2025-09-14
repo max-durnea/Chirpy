@@ -7,6 +7,7 @@ import(
 	"encoding/json"
 	"time"
 	"strings"
+	"database/sql"
 	"github.com/max-durnea/Chirpy/internal/database"
 	"github.com/google/uuid"
 	"github.com/max-durnea/Chirpy/internal/auth"
@@ -197,7 +198,6 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request){
 	type params struct{
 		Password string `json:"password"`
 		Email string `json:"email"`
-		ExpiresInSeconds int `json:"expires_in_seconds"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	var data params
@@ -205,9 +205,6 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request){
 	if err != nil {
 		respondWithError(w,400,fmt.Sprintf("%v",err))
 		return
-	}
-	if data.ExpiresInSeconds == 0 || data.ExpiresInSeconds > 3600 {
-		data.ExpiresInSeconds = 3600
 	}
 	userDb, err := cfg.db.GetUserByEmail(r.Context(),data.Email)
 	if err != nil {
@@ -225,21 +222,120 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request){
 		respondWithError(w,401,"Could not make jwt")
 		return
 	}
+	refresh_token,err:= auth.MakeRefreshToken()
+	if err != nil {
+		respondWithError(w,401,"Could not make refresh token")
+		return
+	}
+	refresh_token_params := database.AddRefreshTokenParams{
+		refresh_token,
+		time.Now(),
+		time.Now(),
+		userDb.ID,
+		time.Now().Add(60 * 24 * time.Hour),
+	}
+	_ , err = cfg.db.AddRefreshToken(r.Context(),refresh_token_params)
+	if err != nil {
+		respondWithError(w,401,"Could not add refresh token to database")
+		return
+	}
 	resp := struct {
 		ID        uuid.UUID `json:"id"`
 		CreatedAt time.Time `json:"created_at"`
 		UpdatedAt time.Time `json:"updated_at"`
 		Email     string    `json:"email"`
 		Token     string    `json:"token"`
+		RefreshToken string `json:"refresh_token"`
 	}{
 		ID:        userDb.ID,
 		CreatedAt: userDb.CreatedAt,
 		UpdatedAt: userDb.UpdatedAt,
 		Email:     userDb.Email,
 		Token:     token,
+		RefreshToken: refresh_token,
 	}
 
 	respondWithJson(w, 200, resp)
 
+}
+
+func (cfg *apiConfig) refreshTokenHandler(w http.ResponseWriter, r *http.Request){
+	authorization := r.Header.Get("Authorization")
+	if authorization == "" {
+		respondWithError(w,400,"No Authorization Header")
+		return
+	}
+	const prefix = "Bearer "
+	if !strings.HasPrefix(authorization, prefix){
+		respondWithError(w,400,"No Authorization Header")
+		return
+	}
+
+	token := strings.TrimSpace(strings.TrimPrefix(authorization,prefix))
+	if token == ""{
+		respondWithError(w,400,"No Authorization Header")
+		return
+	}
+	tokenDb, err := cfg.db.GetToken(r.Context(), token)
+	if err != nil {
+		respondWithError(w,401,"Token does not exist")
+		return
+	}
+	if tokenDb.RevokedAt.Valid {
+		respondWithError(w, 401, "Token has been revoked")
+		return
+	}
+	if time.Now().After(tokenDb.ExpiresAt){
+		respondWithError(w,401,"Token expired")
+		return
+	}
+	userDb,err := cfg.db.GetUserFromRefreshToken(r.Context(), token)
+	if err != nil {
+		respondWithError(w,400,fmt.Sprintf("%v",err))
+		return
+	}
+	jwt_Token, err := auth.MakeJWT(userDb.ID,cfg.secret,time.Duration(3600)*time.Second)
+	if err != nil {
+		respondWithError(w,500,"Could not generate jwt token")
+		return
+	}
+	respondWithJson(w,200,struct{Token string `json:"token"`}{jwt_Token})
+
 
 }
+
+func (cfg *apiConfig) revokeTokenHandler(w http.ResponseWriter, r *http.Request){
+	authorization := r.Header.Get("Authorization")
+	if authorization == "" {
+		respondWithError(w,400,"No Authorization Header")
+		return
+	}
+	const prefix = "Bearer "
+	if !strings.HasPrefix(authorization, prefix){
+		respondWithError(w,400,"No Authorization Header")
+		return
+	}
+
+	token := strings.TrimSpace(strings.TrimPrefix(authorization,prefix))
+	if token == ""{
+		respondWithError(w,400,"No Authorization Header")
+		return
+	}
+	tokenDb, err := cfg.db.GetToken(r.Context(), token)
+	if err != nil {
+		respondWithError(w,401,"Token does not exist")
+		return
+	}
+	paramsToken := database.UpdateRefreshTokenParams{
+		Token : tokenDb.Token,
+		UpdatedAt : time.Now(),
+		RevokedAt: sql.NullTime{Time: time.Now(), Valid: true},
+	}
+	_,err = cfg.db.UpdateRefreshToken(r.Context(),paramsToken)
+	if err != nil {
+		respondWithError(w,400,"Could not revoke token")
+		return
+	}
+	respondWithJson(w,204,struct{}{})
+}
+
