@@ -13,7 +13,7 @@ import(
 
 var apiCfg = apiConfig{}
 
-//Same user struct as in internal/database package, just to have the json keys
+//Same structs as in internal/database package, just to have the json keys
 type User struct {
 	ID        uuid.UUID `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
@@ -56,5 +56,6 @@ func main(){
 	mux.HandleFunc("POST /api/chirps",apiCfg.createChirpHandler)
 	mux.HandleFunc("GET /api/chirps",apiCfg.getChirpsHandler)
 	mux.HandleFunc("GET /api/chirps/", apiCfg.getChirpsHandler)
+	mux.HandleFunc("POST /api/login",apiCfg.loginHandler)
 	server.ListenAndServe()
 }
