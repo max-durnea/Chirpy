@@ -339,3 +339,53 @@ func (cfg *apiConfig) revokeTokenHandler(w http.ResponseWriter, r *http.Request)
 	respondWithJson(w,204,struct{}{})
 }
 
+func (cfg *apiConfig) updateHandler(w http.ResponseWriter, r *http.Request){
+	// get the access token
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w,401,fmt.Sprintf("%v",err))
+	}
+	// get userID from token
+	userID, err := auth.ValidateJWT(token, cfg.secret)
+	if err != nil {
+		respondWithError(w,401,fmt.Sprintf("%v",err))
+	}
+	userDb, err := cfg.db.GetUserById(r.Context(), userID)
+	if err != nil {
+		respondWithError(w,401,fmt.Sprintf("%v",err))
+	}
+	type params struct {
+		Password string `json:"password"`
+		Email string `json:"email"`
+	}
+	var data params
+	decoder := json.NewDecoder(r.Body)
+	err = decoder.Decode(&data)
+	if err != nil {
+		respondWithError(w,401,fmt.Sprintf("%v",err))
+	}
+	hashed_pass, err := auth.HashPassword(data.Password)
+	if err != nil {
+		respondWithError(w,401,fmt.Sprintf("%v",err))
+	}
+	updateParams := database.UpdateUserParams{
+		userID,
+		data.Email,
+		hashed_pass,
+		time.Now(),
+	}
+	userDb, err = cfg.db.UpdateUser(r.Context(), updateParams)
+	if err != nil {
+		respondWithError(w,401,fmt.Sprintf("%v",err))
+	}
+
+	user := User{
+		ID : userDb.ID,
+		CreatedAt : userDb.CreatedAt,
+		UpdatedAt : userDb.UpdatedAt,
+		Email : userDb.Email,
+	}
+	respondWithJson(w,200,user)
+
+}
+
