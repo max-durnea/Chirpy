@@ -20,6 +20,7 @@ type apiConfig struct {
 	db *database.Queries
 	platform string
 	secret string
+	polka_key string
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -459,6 +460,15 @@ func (cfg *apiConfig) upgradeUserHandler(w http.ResponseWriter, r *http.Request)
 	var data params
 	err := decoder.Decode(&data)
 	if err != nil {
+		respondWithError(w,404,"BRUH")
+		return
+	}
+	apiKey, err := auth.GetAPIKey(r.Header)
+	if err != nil {
+		respondWithError(w,401,"BRUH")
+		return
+	}
+	if apiKey != cfg.polka_key {
 		respondWithError(w,404,"BRUH")
 		return
 	}

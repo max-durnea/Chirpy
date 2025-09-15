@@ -43,6 +43,7 @@ func main(){
 	apiCfg.db = dbQueries
 	apiCfg.platform = os.Getenv("PLATFORM")
 	apiCfg.secret = os.Getenv("SECRET")
+	apiCfg.polka_key = os.Getenv("POLKA_KEY")
 	mux := http.NewServeMux()
 	server := &http.Server{}
 	server.Handler = mux
