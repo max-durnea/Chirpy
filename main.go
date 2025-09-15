@@ -19,6 +19,7 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Email     string    `json:"email"`
+	IsChirpyRed bool `json:"is_chirpy_red"`
 }
 
 type Chirp struct {
@@ -62,5 +63,6 @@ func main(){
 	mux.HandleFunc("POST /api/revoke",apiCfg.revokeTokenHandler)
 	mux.HandleFunc("PUT /api/users",apiCfg.updateHandler)
 	mux.HandleFunc("DELETE /api/chirps/",apiCfg.deleteChirpHandler)
+	mux.HandleFunc("/api/polka/webhooks",apiCfg.upgradeUserHandler)
 	server.ListenAndServe()
 }

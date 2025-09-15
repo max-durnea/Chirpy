@@ -67,6 +67,7 @@ func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request){
         CreatedAt: dbUser.CreatedAt,
         UpdatedAt: dbUser.UpdatedAt,
         Email:     dbUser.Email,
+		IsChirpyRed: dbUser.IsChirpyRed,
     }
 
 	if err != nil {
@@ -246,13 +247,16 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request){
 		Email     string    `json:"email"`
 		Token     string    `json:"token"`
 		RefreshToken string `json:"refresh_token"`
+		IsChirpyRed bool `json:"is_chirpy_red"`
 	}{
 		ID:        userDb.ID,
 		CreatedAt: userDb.CreatedAt,
 		UpdatedAt: userDb.UpdatedAt,
 		Email:     userDb.Email,
+		IsChirpyRed: userDb.IsChirpyRed,
 		Token:     token,
 		RefreshToken: refresh_token,
+		
 	}
 
 	respondWithJson(w, 200, resp)
@@ -390,6 +394,7 @@ func (cfg *apiConfig) updateHandler(w http.ResponseWriter, r *http.Request){
 		CreatedAt : userDb.CreatedAt,
 		UpdatedAt : userDb.UpdatedAt,
 		Email : userDb.Email,
+		IsChirpyRed : userDb.IsChirpyRed,
 	}
 	respondWithJson(w,200,user)
 
@@ -439,6 +444,42 @@ func (cfg *apiConfig) deleteChirpHandler(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		respondWithError(w,400,fmt.Sprintf("%v",err))
 		return
+	}
+	respondWithJson(w,204,struct{}{})
+}
+
+func (cfg *apiConfig) upgradeUserHandler(w http.ResponseWriter, r *http.Request){
+	type params struct {
+		Event string `json:"event"`
+		Data struct{
+			UserID string `json:"user_id"`
+		} `json:"data"`
+	}
+	decoder := json.NewDecoder(r.Body)
+	var data params
+	err := decoder.Decode(&data)
+	if err != nil {
+		respondWithError(w,404,"BRUH")
+		return
+	}
+	if data.Event != "user.upgraded"{
+		respondWithJson(w,204,struct{}{})
+		return
+	}
+	id,err := uuid.Parse(data.Data.UserID)
+	if err != nil {
+		respondWithError(w,404,"BRUH")
+		return
+	}
+	userDb, err := cfg.db.GetUserById(r.Context(), id)
+	if err != nil {
+		respondWithError(w,404,"BRUH")
+		return		
+	}
+	err = cfg.db.UpgradeUserByID(r.Context(),userDb.ID)
+	if err != nil {
+		respondWithError(w,404,"BRUH")
+		return		
 	}
 	respondWithJson(w,204,struct{}{})
 }
