@@ -344,15 +344,18 @@ func (cfg *apiConfig) updateHandler(w http.ResponseWriter, r *http.Request){
 	token, err := auth.GetBearerToken(r.Header)
 	if err != nil {
 		respondWithError(w,401,fmt.Sprintf("%v",err))
+		return
 	}
 	// get userID from token
 	userID, err := auth.ValidateJWT(token, cfg.secret)
 	if err != nil {
 		respondWithError(w,401,fmt.Sprintf("%v",err))
+		return
 	}
 	userDb, err := cfg.db.GetUserById(r.Context(), userID)
 	if err != nil {
 		respondWithError(w,401,fmt.Sprintf("%v",err))
+		return
 	}
 	type params struct {
 		Password string `json:"password"`
@@ -363,10 +366,12 @@ func (cfg *apiConfig) updateHandler(w http.ResponseWriter, r *http.Request){
 	err = decoder.Decode(&data)
 	if err != nil {
 		respondWithError(w,401,fmt.Sprintf("%v",err))
+		return
 	}
 	hashed_pass, err := auth.HashPassword(data.Password)
 	if err != nil {
 		respondWithError(w,401,fmt.Sprintf("%v",err))
+		return
 	}
 	updateParams := database.UpdateUserParams{
 		userID,
@@ -377,6 +382,7 @@ func (cfg *apiConfig) updateHandler(w http.ResponseWriter, r *http.Request){
 	userDb, err = cfg.db.UpdateUser(r.Context(), updateParams)
 	if err != nil {
 		respondWithError(w,401,fmt.Sprintf("%v",err))
+		return
 	}
 
 	user := User{
@@ -387,5 +393,53 @@ func (cfg *apiConfig) updateHandler(w http.ResponseWriter, r *http.Request){
 	}
 	respondWithJson(w,200,user)
 
+}
+
+func (cfg *apiConfig) deleteChirpHandler(w http.ResponseWriter, r *http.Request){
+	path := r.URL.Path
+	pathSlice := strings.Split(path,"/")
+	if len(pathSlice) != 4 {
+		respondWithError(w,404,"Page not Found")
+		return
+	}
+	// extract chirpID
+	chirpIDS := pathSlice[3]
+	// get the access token
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w,401,fmt.Sprintf("%v",err))
+		return
+	}
+	// get userID from token
+	userID, err := auth.ValidateJWT(token, cfg.secret)
+	if err != nil {
+		respondWithError(w,400,fmt.Sprintf("%v",err))
+		return
+	}
+	userDb, err:= cfg.db.GetUserById(r.Context(),userID)
+	if err != nil {
+		respondWithError(w,400,fmt.Sprintf("%v",err))
+		return
+	}
+	chirpID, err := uuid.Parse(chirpIDS)
+	if err != nil {
+		respondWithError(w,400,fmt.Sprintf("%v",err))
+		return		
+	}
+	chirpDb, err := cfg.db.GetChirpById(r.Context(),chirpID)
+	if err != nil {
+		respondWithError(w,400,fmt.Sprintf("%v",err))
+		return
+	}
+	if chirpDb.UserID != userDb.ID {
+		respondWithError(w, 403, "Not allowed")
+		return
+	}
+	err = cfg.db.DeleteChirpById(r.Context(), chirpDb.ID)
+	if err != nil {
+		respondWithError(w,400,fmt.Sprintf("%v",err))
+		return
+	}
+	respondWithJson(w,204,struct{}{})
 }
 
