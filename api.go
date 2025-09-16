@@ -149,21 +149,43 @@ func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request)
 
 func (cfg *apiConfig) getChirpsHandler(w http.ResponseWriter, r *http.Request){
 	path := r.URL.Path
+	
 	if path == "/api/chirps"{
+
 		dbChirps, err := cfg.db.GetChirps(r.Context())
 		if err != nil {
 			respondWithError(w, 500, fmt.Sprintf("%v", err))
 			return
 		}
-		chirps := make([]Chirp, len(dbChirps))
-		for i, c := range dbChirps {
-			chirps[i] = Chirp{
-				ID:        c.ID,
-				CreatedAt: c.CreatedAt,
-				UpdatedAt: c.UpdatedAt,
-				Body:      c.Body,
-				UserID:    c.UserID,
+		var chirps []Chirp
+		id := r.URL.Query().Get("author_id")
+		if id != "" {
+			parsed, err := uuid.Parse(id)
+			if err != nil {
+				respondWithError(w, 400, "Invalid author_id")
+				return
 			}
+			for _, c := range dbChirps {
+				if c.UserID == parsed {
+					chirps = append(chirps, Chirp{
+						ID:        c.ID,
+						CreatedAt: c.CreatedAt,
+						UpdatedAt: c.UpdatedAt,
+						Body:      c.Body,
+						UserID:    c.UserID,
+					})
+				}
+			}
+		} else {
+			for i, c := range dbChirps {
+				chirps[i] = Chirp{
+					ID:        c.ID,
+					CreatedAt: c.CreatedAt,
+					UpdatedAt: c.UpdatedAt,
+					Body:      c.Body,
+					UserID:    c.UserID,
+				}
+			}			
 		}
 		respondWithJson(w, 200, chirps)
 		return
@@ -173,7 +195,6 @@ func (cfg *apiConfig) getChirpsHandler(w http.ResponseWriter, r *http.Request){
 	if strings.HasPrefix(path,prefix) {
 		chirpIDStr := strings.TrimPrefix(path,prefix)
 		id, err := uuid.Parse(chirpIDStr)
-
 		if err != nil {
 			respondWithError(w, 500, fmt.Sprintf("%v", err))
 			return
