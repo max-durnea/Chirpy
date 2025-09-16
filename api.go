@@ -7,6 +7,7 @@ import(
 	"encoding/json"
 	"time"
 	"strings"
+	"sort"
 	"database/sql"
 	"github.com/max-durnea/Chirpy/internal/database"
 	"github.com/google/uuid"
@@ -177,16 +178,30 @@ func (cfg *apiConfig) getChirpsHandler(w http.ResponseWriter, r *http.Request){
 				}
 			}
 		} else {
-			for i, c := range dbChirps {
-				chirps[i] = Chirp{
+			for _, c := range dbChirps {
+				chirps = append(chirps, Chirp{
 					ID:        c.ID,
 					CreatedAt: c.CreatedAt,
 					UpdatedAt: c.UpdatedAt,
 					Body:      c.Body,
 					UserID:    c.UserID,
-				}
+				})
 			}			
 		}
+		
+		// Handle sorting
+		sortParam := r.URL.Query().Get("sort")
+		if sortParam == "desc" {
+			sort.Slice(chirps, func(i, j int) bool {
+				return chirps[i].CreatedAt.After(chirps[j].CreatedAt)
+			})
+		} else {
+			// Default to ascending (asc)
+			sort.Slice(chirps, func(i, j int) bool {
+				return chirps[i].CreatedAt.Before(chirps[j].CreatedAt)
+			})
+		}
+		
 		respondWithJson(w, 200, chirps)
 		return
 	}
